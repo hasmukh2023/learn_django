@@ -1,10 +1,11 @@
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework.decorators import action
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from .serializers import UserSerializer
+from .serializers import UserSerializer, UserActivitySerializer
+from .models import UserActivity
 
 
 class UserViewSet(viewsets.GenericViewSet):
@@ -33,6 +34,7 @@ class UserViewSet(viewsets.GenericViewSet):
         user = authenticate(username=username, password=password)
         if user:
             token, created = Token.objects.get_or_create(user=user)
+            UserActivity.objects.create(user=user, action="login")
             return Response({
                 'token': token.key,
                 'user_id': user.id,
@@ -40,3 +42,9 @@ class UserViewSet(viewsets.GenericViewSet):
                 'email': user.email
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class UserActivityViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = UserActivity.objects.all().order_by('-timestamp')
+    serializer_class = UserActivitySerializer
+    permission_classes = [permissions.IsAdminUser]
